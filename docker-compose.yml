@@ -1,0 +1,173 @@
+version: '2'
+services:
+    plex:
+        image: linuxserver/plex
+        container_name: plex
+        volumes:
+            - D:\Docker\Config\plex:/config
+            - D:\Docker\Config\plex\Movies:/data/movies
+            - D:\Docker\Config\plex\Shows:/data/tvshows
+            - D:\Docker\Config\plex\transcode:/data/transcode
+        network_mode: host
+        restart: always
+        environment:
+            - VERSION=latest
+            - TZ=Africa/Johannesburg
+        ports:
+            - 32400:32400
+    nzbget:
+        image: linuxserver/nzbget
+        container_name: nzbget
+        volumes:
+            - D:\Docker\Config\nzbget\config:/config
+            - D:\Docker\Data\Downloads:/downloads
+        restart: always
+        environment:
+            - TZ=Africa/Johannesburg
+        ports:
+            - 6789:6789
+    sonarr:
+        image: linuxserver/sonarr
+        container_name: sonarr
+        depends_on:
+            - nzbget
+        volumes:
+            - D:\Docker\Config\sonarr\config:/config
+            - D:\Docker\Config\nzbget\downloads:/downloads
+            - D:\Docker\Config\plex\Shows:/tv
+        environment:
+            - TZ=Africa/Johannesburg
+        ports:
+            - 8989:8989
+    radarr:
+        image: linuxserver/radarr
+        container_name: radarr
+        depends_on:
+            - nzbget
+        volumes:
+            - D:\Docker\Config\radarr\config:/config
+            - D:\Docker\Config\nzbget\downloads:/downloads
+            - D:\Docker\Config\plex\Movies:/movies
+        environment:
+            - TZ=Africa/Johannesburg
+        ports:
+            - 7878:7878
+    prowlarr:
+        image: ghcr.io/linuxserver/prowlarr:develop
+        container_name: prowlarr
+        environment:
+        - PUID=1000
+        - PGID=1000
+        - TZ=Africa/Johannesburg
+        volumes:
+            - D:\Docker\Config\prowlarr\config:/config
+        ports:
+            - 9696:9696
+        restart: unless-stopped
+    letsencrypt:
+        image: linuxserver/letsencrypt
+        container_name: letsencrypt
+        ports:
+            - 443:443
+            # Only for validation, redirect all http traffic to https in config
+            - 80:80
+        volumes:
+            - D:\Docker\Config\letsencrypt\config:/config
+        restart: always
+        depends_on:
+            - nzbget
+            - sonarr
+            - radarr
+            - prowlarr
+        environment:
+            - TZ=Africa/Johannesburg
+            - EMAIL=duncan.macmillan@tcbw.biz
+            - URL=Some.Domain
+            - SUBDOMAINS=services
+            - ONLY_SUBDOMAINS=true
+            # tns validation doesn't work
+            - VALIDATION=http
+    # Still requires user to be added. See github for more details
+    portainer:
+        image: portainer/portainer-ce
+        container_name: portainer
+        ports:
+            - 9000:9000
+        volumes:
+            - D:\Docker\Config\portainer:/data
+            - /var/run/docker.sock:/var/run/docker.sock
+        restart: always
+    watchtower:
+        image: v2tec/watchtower
+        container_name: watchtower
+        restart: always
+        volumes:
+            - /var/run/docker.sock:/var/run/docker.sock
+    npm:
+        image: 'jc21/nginx-proxy-manager:latest'
+        container_name: npm
+        restart: unless-stopped
+        ports:
+            - '80:80'
+            - '81:81'
+            - '443:443'
+        environment:
+            DB_MYSQL_HOST: "db"
+            DB_MYSQL_PORT: 3306
+            DB_MYSQL_USER: "npm"
+            DB_MYSQL_PASSWORD: "npm"
+            DB_MYSQL_NAME: "npm"
+        volumes:
+            - D:\Docker\Config\npm\data:/data
+            - D:\Docker\Config\letsencrypt\config:/etc/letsencrypt
+    mysql:
+        image: 'jc21/mariadb-aria:latest'
+        container_name: mysql
+        restart: unless-stopped
+        environment:
+            MYSQL_ROOT_PASSWORD: 'npm'
+            MYSQL_DATABASE: 'npm'
+            MYSQL_USER: 'npm'
+            MYSQL_PASSWORD: 'npm'
+        volumes:
+            - D:\Docker\Config\mysql:/var/lib/mysql
+    overseerr:
+        image: sctx/overseerr:latest
+        container_name: overseerr
+        environment:
+            - LOG_LEVEL=error
+            - TZ=Africa/Johannesburg
+        ports:
+            - 5055:5055
+        volumes:
+            - D:\Docker\Config\readarr\config:/app/config
+        restart: unless-stopped
+    readarr:
+        image: hotio/readarr:unstable
+        container_name: readarr
+        environment:
+            - PUID=1000
+            - PGID=1000
+            - TZ=Africa/Johannesburg
+        volumes:
+            - D:\Docker\Config\readarr\config:/config
+            - D:\Docker\Data\Readarr\Books:/books #optional
+            - D:\Docker\Data\Downloads:/downloads #optional
+        ports:
+            - 8787:8787
+        restart: unless-stopped
+    calibre:
+        image: linuxserver/calibre
+        container_name: calibre
+        environment:
+            - PUID=1000
+            - PGID=1000
+            - TZ=Africa/Johannesburg
+        volumes:
+            - D:\Docker\Config\calibre\config:/config
+            - D:\Docker\Data\media\books:/library
+            - /etc/localtime:/etc/localtime:ro
+        ports:
+            - 9980:8080
+            - 9981:8081
+        restart: unless-stopped
