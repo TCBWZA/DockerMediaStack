@@ -97,16 +97,18 @@ services:
             - D:\Docker\Config\portainer:/data
             - /var/run/docker.sock:/var/run/docker.sock
         restart: always
-    watchtower:
-        image: v2tec/watchtower
-        container_name: watchtower
-        restart: always
-        volumes:
-            - /var/run/docker.sock:/var/run/docker.sock
+   # watchtower:
+       # image: v2tec/watchtower
+       # container_name: watchtower
+       # restart: always
+       # volumes:
+       #     - /var/run/docker.sock:/var/run/docker.sock
     npm:
         image: 'jc21/nginx-proxy-manager:latest'
         container_name: npm
         restart: unless-stopped
+        depends_on:
+            - mysql
         ports:
             - '80:80'
             - '81:81'
